@@ -1,3 +1,4 @@
+mod auth;
 mod budgets;
 mod categories;
 mod summary;
@@ -9,6 +10,9 @@ use sqlx::MySqlPool;
 
 pub fn routes() -> Router<MySqlPool> {
     Router::new()
+        .route("/api/auth/login", routing::post(auth::login))
+        .route("/api/auth/me", routing::get(auth::me))
+        .route("/api/auth/logout", routing::post(auth::logout))
         .route("/api/users", routing::get(users::list).post(users::create))
         .route(
             "/api/users/{id}",

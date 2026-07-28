@@ -15,7 +15,7 @@ pub async fn list(
     State(pool): State<MySqlPool>,
     Query(q): Query<CategoryQuery>,
 ) -> Result<Json<Vec<Category>>, AppError> {
-    let mut sql = "SELECT id, name, type AS category_type, icon FROM categories".to_string();
+    let mut sql = "SELECT id, name, type AS category_type, icon, budget_percent FROM categories".to_string();
     if let Some(ref t) = q.category_type {
         sql.push_str(" WHERE type = ?");
     }
@@ -37,10 +37,12 @@ pub struct CreateCategoryRequest {
     pub category_type: String,
     #[serde(default = "default_icon")]
     pub icon: String,
+    #[serde(default)]
+    pub budget_percent: i32,
 }
 
 fn default_icon() -> String {
-    "📦".into()
+    "more".into()
 }
 
 pub async fn create(
@@ -55,10 +57,11 @@ pub async fn create(
         return Err(AppError::BadRequest("type must be income or expense".into()));
     }
 
-    let result = sqlx::query("INSERT INTO categories (name, type, icon) VALUES (?, ?, ?)")
+    let result = sqlx::query("INSERT INTO categories (name, type, icon, budget_percent) VALUES (?, ?, ?, ?)")
         .bind(&name)
         .bind(&req.category_type)
         .bind(&req.icon)
+        .bind(req.budget_percent)
         .execute(&pool)
         .await
         .map_err(|e| {
@@ -71,7 +74,7 @@ pub async fn create(
 
     let id = result.last_insert_id() as i32;
     let cat = sqlx::query_as::<_, Category>(
-        "SELECT id, name, type AS category_type, icon FROM categories WHERE id = ?",
+        "SELECT id, name, type AS category_type, icon, budget_percent FROM categories WHERE id = ?",
     )
     .bind(id)
     .fetch_one(&pool)
@@ -86,6 +89,7 @@ pub struct UpdateCategoryRequest {
     #[serde(rename = "type")]
     pub category_type: Option<String>,
     pub icon: Option<String>,
+    pub budget_percent: Option<i32>,
 }
 
 pub async fn update(
@@ -94,7 +98,7 @@ pub async fn update(
     Json(req): Json<UpdateCategoryRequest>,
 ) -> Result<Json<Category>, AppError> {
     let existing =
-        sqlx::query_as::<_, Category>("SELECT id, name, type AS category_type, icon FROM categories WHERE id = ?")
+        sqlx::query_as::<_, Category>("SELECT id, name, type AS category_type, icon, budget_percent FROM categories WHERE id = ?")
             .bind(id)
             .fetch_optional(&pool)
             .await?
@@ -104,6 +108,7 @@ pub async fn update(
     let name = name.trim().to_string();
     let cat_type = req.category_type.unwrap_or(existing.category_type);
     let icon = req.icon.unwrap_or(existing.icon);
+    let budget_percent = req.budget_percent.unwrap_or(existing.budget_percent);
 
     if name.is_empty() {
         return Err(AppError::BadRequest("name is required".into()));
@@ -112,10 +117,11 @@ pub async fn update(
         return Err(AppError::BadRequest("type must be income or expense".into()));
     }
 
-    sqlx::query("UPDATE categories SET name = ?, type = ?, icon = ? WHERE id = ?")
+    sqlx::query("UPDATE categories SET name = ?, type = ?, icon = ?, budget_percent = ? WHERE id = ?")
         .bind(&name)
         .bind(&cat_type)
         .bind(&icon)
+        .bind(budget_percent)
         .bind(id)
         .execute(&pool)
         .await
@@ -128,7 +134,7 @@ pub async fn update(
         })?;
 
     let cat = sqlx::query_as::<_, Category>(
-        "SELECT id, name, type AS category_type, icon FROM categories WHERE id = ?",
+        "SELECT id, name, type AS category_type, icon, budget_percent FROM categories WHERE id = ?",
     )
     .bind(id)
     .fetch_one(&pool)

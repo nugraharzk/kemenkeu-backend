@@ -5,7 +5,7 @@ use axum::Json;
 use sqlx::MySqlPool;
 
 pub async fn list(State(pool): State<MySqlPool>) -> Result<Json<Vec<User>>, AppError> {
-    let users = sqlx::query_as::<_, User>("SELECT id, name FROM users ORDER BY id")
+    let users = sqlx::query_as::<_, User>("SELECT id, name, monthly_budget_cents FROM users ORDER BY id")
         .fetch_all(&pool)
         .await?;
     Ok(Json(users))
@@ -20,8 +20,9 @@ pub async fn create(
         return Err(AppError::BadRequest("name is required".into()));
     }
 
-    let result = sqlx::query("INSERT INTO users (name) VALUES (?)")
+    let result = sqlx::query("INSERT INTO users (name, monthly_budget_cents) VALUES (?, ?)")
         .bind(&name)
+        .bind(req.monthly_budget_cents)
         .execute(&pool)
         .await
         .map_err(|e| {
@@ -33,7 +34,7 @@ pub async fn create(
         })?;
 
     let id = result.last_insert_id() as i32;
-    let user = sqlx::query_as::<_, User>("SELECT id, name FROM users WHERE id = ?")
+    let user = sqlx::query_as::<_, User>("SELECT id, name, monthly_budget_cents FROM users WHERE id = ?")
         .bind(id)
         .fetch_one(&pool)
         .await?;
@@ -46,7 +47,7 @@ pub async fn update(
     Path(id): Path<i32>,
     Json(req): Json<UpdateUserRequest>,
 ) -> Result<Json<User>, AppError> {
-    let existing = sqlx::query_as::<_, User>("SELECT id, name FROM users WHERE id = ?")
+    let existing = sqlx::query_as::<_, User>("SELECT id, name, monthly_budget_cents FROM users WHERE id = ?")
         .bind(id)
         .fetch_optional(&pool)
         .await?
@@ -54,12 +55,14 @@ pub async fn update(
 
     let name = req.name.unwrap_or(existing.name);
     let name = name.trim().to_string();
+    let monthly_budget = req.monthly_budget_cents.unwrap_or(existing.monthly_budget_cents);
     if name.is_empty() {
         return Err(AppError::BadRequest("name is required".into()));
     }
 
-    sqlx::query("UPDATE users SET name = ? WHERE id = ?")
+    sqlx::query("UPDATE users SET name = ?, monthly_budget_cents = ? WHERE id = ?")
         .bind(&name)
+        .bind(monthly_budget)
         .bind(id)
         .execute(&pool)
         .await
@@ -71,7 +74,7 @@ pub async fn update(
             }
         })?;
 
-    let user = sqlx::query_as::<_, User>("SELECT id, name FROM users WHERE id = ?")
+    let user = sqlx::query_as::<_, User>("SELECT id, name, monthly_budget_cents FROM users WHERE id = ?")
         .bind(id)
         .fetch_one(&pool)
         .await?;

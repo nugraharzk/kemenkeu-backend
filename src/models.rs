@@ -5,16 +5,20 @@ use serde::{Deserialize, Serialize};
 pub struct User {
     pub id: i32,
     pub name: String,
+    pub monthly_budget_cents: i64,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct CreateUserRequest {
     pub name: String,
+    #[serde(default)]
+    pub monthly_budget_cents: i64,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateUserRequest {
     pub name: Option<String>,
+    pub monthly_budget_cents: Option<i64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
@@ -24,12 +28,13 @@ pub struct Category {
     #[serde(rename = "type")]
     pub category_type: String,
     pub icon: String,
+    pub budget_percent: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Transaction {
     pub id: i32,
-    pub person: String,
+    pub user_id: i32,
     pub amount_cents: i64,
     pub category_id: i32,
     pub note: String,
@@ -39,7 +44,6 @@ pub struct Transaction {
 
 #[derive(Debug, Deserialize)]
 pub struct CreateTxRequest {
-    pub person: String,
     pub amount_cents: i64,
     pub category_id: i32,
     #[serde(default)]
@@ -49,7 +53,6 @@ pub struct CreateTxRequest {
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateTxRequest {
-    pub person: Option<String>,
     pub amount_cents: Option<i64>,
     pub category_id: Option<i32>,
     pub note: Option<String>,
@@ -75,7 +78,7 @@ pub struct BudgetRequest {
 
 #[derive(Debug, Serialize, sqlx::FromRow)]
 pub struct SummaryRow {
-    pub person: String,
+    pub user_id: i32,
     pub category_id: i32,
     pub total_cents: i64,
     pub count: i64,
@@ -102,6 +105,8 @@ pub struct BudgetStatus {
     pub category_name: String,
     pub icon: String,
     pub person: Option<String>,
+    pub budget_percent: i32,
+    pub monthly_income: i64,
     pub budgeted: i64,
     pub spent: i64,
     pub remaining: i64,

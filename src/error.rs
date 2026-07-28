@@ -7,6 +7,7 @@ use serde_json::json;
 pub enum AppError {
     NotFound(String),
     BadRequest(String),
+    Unauthorized(String),
     Internal(String),
 }
 
@@ -15,6 +16,7 @@ impl IntoResponse for AppError {
         let (status, msg) = match self {
             AppError::NotFound(m) => (StatusCode::NOT_FOUND, m),
             AppError::BadRequest(m) => (StatusCode::BAD_REQUEST, m),
+            AppError::Unauthorized(m) => (StatusCode::UNAUTHORIZED, m),
             AppError::Internal(m) => (StatusCode::INTERNAL_SERVER_ERROR, m),
         };
         (status, Json(json!({"error": msg}))).into_response()
